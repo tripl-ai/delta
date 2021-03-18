@@ -134,63 +134,65 @@ case class PreprocessTableMerge(conf: SQLConf)
       case m: DeltaMergeIntoDeleteClause => m    // Delete does not need reordering
     }
 
-    val processedNotMatched = notMatched.map { m =>
-      // Check if columns are distinct. All actions should have targetColNameParts.size = 1.
-      m.resolvedActions.foreach { a =>
-        if (a.targetColNameParts.size > 1) {
-          throw DeltaErrors.nestedFieldNotSupported(
-            "INSERT clause of MERGE operation",
-            a.targetColNameParts.mkString("`", "`.`", "`")
-          )
-        }
-      }
-
-      val targetColNames = m.resolvedActions.map(_.targetColNameParts.head)
-      if (targetColNames.distinct.size < targetColNames.size) {
-        throw new AnalysisException(s"Duplicate column names in INSERT clause")
-      }
-
-      val newActionsFromTargetSchema = target.output.filterNot { col =>
-        m.resolvedActions.exists { insertAct =>
-          conf.resolver(insertAct.targetColNameParts.head, col.name)
-        }
-      }.map { col =>
-        DeltaMergeAction(Seq(col.name), Literal(null, col.dataType))
-      }
-
-      val newActionsFromUpdate = matched.flatMap {
-        _.resolvedActions.filterNot { updateAct =>
-          m.resolvedActions.exists { insertAct =>
-            conf.resolver(insertAct.targetColNameParts.head, updateAct.targetColNameParts.head)
+    val processedNotMatched = notMatched.map {
+      case m: DeltaMergeIntoInsertClause =>
+        // Check if columns are distinct. All actions should have targetColNameParts.size = 1.
+        m.resolvedActions.foreach { a =>
+          if (a.targetColNameParts.size > 1) {
+            throw DeltaErrors.nestedFieldNotSupported(
+              "INSERT clause of MERGE operation",
+              a.targetColNameParts.mkString("`", "`.`", "`")
+            )
           }
-        }.toSeq
-      }.map { updateAction =>
-        DeltaMergeAction(updateAction.targetColNameParts, Literal(null, updateAction.dataType))
-      }
-
-      // Reorder actions by the target column order, with columns to be schema evolved that
-      // aren't currently in the target at the end.
-      val alignedActions: Seq[DeltaMergeAction] = finalSchema.map { targetAttrib =>
-        (m.resolvedActions ++ newActionsFromTargetSchema ++ newActionsFromUpdate).find { a =>
-          conf.resolver(targetAttrib.name, a.targetColNameParts.head)
-        }.map { a =>
-          DeltaMergeAction(
-            Seq(targetAttrib.name),
-            castIfNeeded(
-              a.expr,
-              targetAttrib.dataType,
-              allowStructEvolution = shouldAutoMigrate))
-        }.getOrElse {
-          // If a target table column was not found in the INSERT columns and expressions,
-          // then throw exception as there must be an expression to set every target column.
-          throw new AnalysisException(
-            s"Unable to find the column '${targetAttrib.name}' of the target table from " +
-              s"the INSERT columns: ${targetColNames.mkString(", ")}. " +
-              s"INSERT clause must specify value for all the columns of the target table.")
         }
-      }
 
-      m.copy(m.condition, alignedActions)
+        val targetColNames = m.resolvedActions.map(_.targetColNameParts.head)
+        if (targetColNames.distinct.size < targetColNames.size) {
+          throw new AnalysisException(s"Duplicate column names in INSERT clause")
+        }
+
+        val newActionsFromTargetSchema = target.output.filterNot { col =>
+          m.resolvedActions.exists { insertAct =>
+            conf.resolver(insertAct.targetColNameParts.head, col.name)
+          }
+        }.map { col =>
+          DeltaMergeAction(Seq(col.name), Literal(null, col.dataType))
+        }
+
+        val newActionsFromUpdate = matched.flatMap {
+          _.resolvedActions.filterNot { updateAct =>
+            m.resolvedActions.exists { insertAct =>
+              conf.resolver(insertAct.targetColNameParts.head, updateAct.targetColNameParts.head)
+            }
+          }.toSeq
+        }.map { updateAction =>
+          DeltaMergeAction(updateAction.targetColNameParts, Literal(null, updateAction.dataType))
+        }
+
+        // Reorder actions by the target column order, with columns to be schema evolved that
+        // aren't currently in the target at the end.
+        val alignedActions: Seq[DeltaMergeAction] = finalSchema.map { targetAttrib =>
+          (m.resolvedActions ++ newActionsFromTargetSchema ++ newActionsFromUpdate).find { a =>
+            conf.resolver(targetAttrib.name, a.targetColNameParts.head)
+          }.map { a =>
+            DeltaMergeAction(
+              Seq(targetAttrib.name),
+              castIfNeeded(
+                a.expr,
+                targetAttrib.dataType,
+                allowStructEvolution = shouldAutoMigrate))
+          }.getOrElse {
+            // If a target table column was not found in the INSERT columns and expressions,
+            // then throw exception as there must be an expression to set every target column.
+            throw new AnalysisException(
+              s"Unable to find the column '${targetAttrib.name}' of the target table from " +
+                s"the INSERT columns: ${targetColNames.mkString(", ")}. " +
+                s"INSERT clause must specify value for all the columns of the target table.")
+          }
+        }
+
+        m.copy(m.condition, alignedActions)
+      case m: DeltaMergeIntoDeleteTargetClause => m    // Delete does not need reordering
     }
 
     val tahoeFileIndex = EliminateSubqueryAliases(target) match {

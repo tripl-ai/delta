@@ -37,6 +37,7 @@ import org.apache.spark.sql.types.{LongType, TimestampType}
  */
 case class DeltaTimeTravelSpec(
     timestamp: Option[Expression],
+    canReturnLastCommit: Option[Boolean],
     version: Option[Long],
     creationSource: Option[String]) extends DeltaLogging {
 
@@ -101,11 +102,11 @@ object DeltaTimeTravelSpec {
         // Drop the 18 characters in the right, which is the timestamp format and the @ character.
         val realIdentifier = identifier.dropRight(TIMESTAMP_FORMAT_LENGTH + 1)
 
-        DeltaTimeTravelSpec(Some(timestamp), None, Some("atSyntax.path")) -> realIdentifier
+        DeltaTimeTravelSpec(Some(timestamp), Some(false), None, Some("atSyntax.path")) -> realIdentifier
       case VERSION_URI_FOR_TIME_TRAVEL(v) =>
         // Drop the version, and `@v` characters from the identifier
         val realIdentifier = identifier.dropRight(v.length + 2)
-        DeltaTimeTravelSpec(None, Some(v.toLong), Some("atSyntax.path")) -> realIdentifier
+        DeltaTimeTravelSpec(None, None, Some(v.toLong), Some("atSyntax.path")) -> realIdentifier
     }
   }
 

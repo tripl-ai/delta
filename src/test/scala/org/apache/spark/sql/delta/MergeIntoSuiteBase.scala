@@ -1888,10 +1888,11 @@ abstract class MergeIntoSuiteBase
         val metrics = spark.sql(s"DESCRIBE HISTORY $targetName LIMIT 1")
           .select("operationMetrics")
           .collect().head.getMap(0).asInstanceOf[Map[String, String]]
-        assert(metrics.contains("numTargetFilesRemoved"))
+
+        assert(metrics.contains("numTargetRowsCopied"))
         // If insert-only code path is not used, then the general code path will rewrite existing
         // target files.
-        assert(metrics("numTargetFilesRemoved").toInt > 0)
+        assert(metrics("numTargetRowsCopied").toInt > 0)
       }
     }
   }

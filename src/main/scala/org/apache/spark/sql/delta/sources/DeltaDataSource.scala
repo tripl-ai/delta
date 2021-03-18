@@ -196,6 +196,11 @@ object DeltaDataSource extends DatabricksLogging {
    */
   final val TIME_TRAVEL_VERSION_KEY = "versionAsOf"
 
+  /**
+   * The option key for hether we can return the latest version of the table if the
+   * provided timestamp is after the latest commit.
+   */
+  final val TIME_TRAVEL_TS_CRLC_KEY = "canReturnLastCommit"
 
   def encodePartitioningColumns(columns: Seq[String]): String = {
     Serialization.write(columns)
@@ -320,20 +325,31 @@ object DeltaDataSource extends DatabricksLogging {
   def getTimeTravelVersion(parameters: Map[String, String]): Option[DeltaTimeTravelSpec] = {
     val caseInsensitive = CaseInsensitiveMap[String](parameters)
     val tsOpt = caseInsensitive.get(DeltaDataSource.TIME_TRAVEL_TIMESTAMP_KEY)
+    val crlcOpt = caseInsensitive.get(DeltaDataSource.TIME_TRAVEL_TS_CRLC_KEY)
     val versionOpt = caseInsensitive.get(DeltaDataSource.TIME_TRAVEL_VERSION_KEY)
     val sourceOpt = caseInsensitive.get(DeltaDataSource.TIME_TRAVEL_SOURCE_KEY)
 
     if (tsOpt.isDefined && versionOpt.isDefined) {
       throw DeltaErrors.provideOneOfInTimeTravel
     } else if (tsOpt.isDefined) {
-      Some(DeltaTimeTravelSpec(Some(Literal(tsOpt.get)), None, sourceOpt.orElse(Some("dfReader"))))
+      val c = crlcOpt match {
+        case Some(value) => {
+          Try(value.toBoolean) match {
+            case Success(v) => Some(v)
+            case Failure(t) => throw new IllegalArgumentException(
+              s"${DeltaDataSource.TIME_TRAVEL_TS_CRLC_KEY} needs to be a valid boolean value.", t)
+          }
+        }
+        case None => None
+      }
+      Some(DeltaTimeTravelSpec(Some(Literal(tsOpt.get)), c, None, sourceOpt.orElse(Some("dfReader"))))
     } else if (versionOpt.isDefined) {
       val version = Try(versionOpt.get.toLong) match {
         case Success(v) => v
         case Failure(t) => throw new IllegalArgumentException(
           s"${DeltaDataSource.TIME_TRAVEL_VERSION_KEY} needs to be a valid bigint value.", t)
       }
-      Some(DeltaTimeTravelSpec(None, Some(version), sourceOpt.orElse(Some("dfReader"))))
+      Some(DeltaTimeTravelSpec(None, None, Some(version), sourceOpt.orElse(Some("dfReader"))))
     } else {
       None
     }

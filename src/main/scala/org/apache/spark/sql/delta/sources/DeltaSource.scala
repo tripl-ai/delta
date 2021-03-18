@@ -413,6 +413,7 @@ case class DeltaSource(
     } else if (options.startingTimestamp.isDefined) {
       val tt: DeltaTimeTravelSpec = DeltaTimeTravelSpec(
         timestamp = options.startingTimestamp.map(Literal(_)),
+        canReturnLastCommit = Some(false),
         version = None,
         creationSource = Some("deltaSource"))
       val tz = spark.sessionState.conf.sessionLocalTimeZone

@@ -540,6 +540,18 @@ class DeltaMergeNotMatchedActionBuilder private(
   private def toStrColumnMap(map: Map[String, String]): Map[String, Column] = {
     map.toSeq.map { case (k, v) => k -> functions.expr(v) }.toMap
   }
+
+  /**
+   * :: Evolving ::
+   *
+   * Delete a not matched row from the target table.
+   * @since 0.3.0
+   */
+  @Evolving
+  def deleteTarget(): DeltaMergeBuilder = {
+    val deleteClause = DeltaMergeIntoDeleteTargetClause(notMatchCondition.map(_.expr))
+    mergeBuilder.withClause(deleteClause)
+  }
 }
 
 object DeltaMergeNotMatchedActionBuilder {

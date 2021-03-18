@@ -18,9 +18,9 @@ name := "delta-core"
 
 organization := "io.delta"
 
-scalaVersion := "2.12.10"
+scalaVersion := "2.12.13"
 
-sparkVersion := "3.0.1"
+sparkVersion := "3.0.2"
 
 libraryDependencies ++= Seq(
   // Adding test classifier seems to break transitive resolution of the core dependencies
@@ -84,19 +84,19 @@ javaOptions in Test ++= Seq(
  * ScalaStyle settings *
  * *********************/
 
-scalastyleConfig := baseDirectory.value / "scalastyle-config.xml"
+// scalastyleConfig := baseDirectory.value / "scalastyle-config.xml"
 
-lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
+// lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 
-compileScalastyle := scalastyle.in(Compile).toTask("").value
+// compileScalastyle := scalastyle.in(Compile).toTask("").value
 
-(compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
+// (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
 
-lazy val testScalastyle = taskKey[Unit]("testScalastyle")
+// lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 
-testScalastyle := scalastyle.in(Test).toTask("").value
+// testScalastyle := scalastyle.in(Test).toTask("").value
 
-(test in Test) := ((test in Test) dependsOn testScalastyle).value
+// (test in Test) := ((test in Test) dependsOn testScalastyle).value
 
 /*********************
  *  MIMA settings    *
@@ -121,40 +121,40 @@ mimaBinaryIssueFilters ++= MimaExcludes.ignoredABIProblems
  * Unidoc settings *
  *******************/
 
-enablePlugins(GenJavadocPlugin, JavaUnidocPlugin, ScalaUnidocPlugin)
+// enablePlugins(GenJavadocPlugin, JavaUnidocPlugin, ScalaUnidocPlugin)
 
-// Configure Scala unidoc
-scalacOptions in(ScalaUnidoc, unidoc) ++= Seq(
-  "-skip-packages", "org:com:io.delta.sql:io.delta.tables.execution",
-  "-doc-title", "Delta Lake " + version.value.replaceAll("-SNAPSHOT", "") + " ScalaDoc"
-)
+// // Configure Scala unidoc
+// scalacOptions in(ScalaUnidoc, unidoc) ++= Seq(
+//   "-skip-packages", "org:com:io.delta.sql:io.delta.tables.execution",
+//   "-doc-title", "Delta Lake " + version.value.replaceAll("-SNAPSHOT", "") + " ScalaDoc"
+// )
 
-// Configure Java unidoc
-javacOptions in(JavaUnidoc, unidoc) := Seq(
-  "-public",
-  "-exclude", "org:com:io.delta.sql:io.delta.tables.execution",
-  "-windowtitle", "Delta Lake " + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
-  "-noqualifier", "java.lang",
-  "-tag", "return:X",
-  // `doclint` is disabled on Circle CI. Need to enable it manually to test our javadoc.
-  "-Xdoclint:all"
-)
+// // Configure Java unidoc
+// javacOptions in(JavaUnidoc, unidoc) := Seq(
+//   "-public",
+//   "-exclude", "org:com:io.delta.sql:io.delta.tables.execution",
+//   "-windowtitle", "Delta Lake " + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
+//   "-noqualifier", "java.lang",
+//   "-tag", "return:X",
+//   // `doclint` is disabled on Circle CI. Need to enable it manually to test our javadoc.
+//   "-Xdoclint:all"
+// )
 
-// Explicitly remove source files by package because these docs are not formatted correctly for Javadocs
-def ignoreUndocumentedPackages(packages: Seq[Seq[java.io.File]]): Seq[Seq[java.io.File]] = {
-  packages
-    .map(_.filterNot(_.getName.contains("$")))
-    .map(_.filterNot(_.getCanonicalPath.contains("io/delta/sql")))
-    .map(_.filterNot(_.getCanonicalPath.contains("io/delta/tables/execution")))
-    .map(_.filterNot(_.getCanonicalPath.contains("spark")))
-}
+// // Explicitly remove source files by package because these docs are not formatted correctly for Javadocs
+// def ignoreUndocumentedPackages(packages: Seq[Seq[java.io.File]]): Seq[Seq[java.io.File]] = {
+//   packages
+//     .map(_.filterNot(_.getName.contains("$")))
+//     .map(_.filterNot(_.getCanonicalPath.contains("io/delta/sql")))
+//     .map(_.filterNot(_.getCanonicalPath.contains("io/delta/tables/execution")))
+//     .map(_.filterNot(_.getCanonicalPath.contains("spark")))
+// }
 
-unidocAllSources in(JavaUnidoc, unidoc) := {
-  ignoreUndocumentedPackages((unidocAllSources in(JavaUnidoc, unidoc)).value)
-}
+// unidocAllSources in(JavaUnidoc, unidoc) := {
+//   ignoreUndocumentedPackages((unidocAllSources in(JavaUnidoc, unidoc)).value)
+// }
 
-// Ensure unidoc is run with tests
-(test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
+// // Ensure unidoc is run with tests
+// (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
 
 
 /***************************

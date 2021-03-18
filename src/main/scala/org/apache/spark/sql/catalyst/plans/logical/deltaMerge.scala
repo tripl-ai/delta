@@ -162,12 +162,23 @@ case class DeltaMergeIntoDeleteClause(condition: Option[Expression])
   override def actions: Seq[Expression] = Seq.empty
 }
 
-/** Represents the clause WHEN NOT MATCHED THEN INSERT in MERGE. See [[DeltaMergeInto]]. */
+/** Trait that represents WHEN NOT MATCHED clause in MERGE. See [[DeltaMergeInto]]. */
+sealed trait DeltaMergeIntoNotMatchedClause extends DeltaMergeIntoClause
+
+/** Represents the clause WHEN NOT MATCHED IN TARGET THEN INSERT in MERGE. See [[DeltaMergeInto]]. */
 case class DeltaMergeIntoInsertClause(condition: Option[Expression], actions: Seq[Expression])
-  extends DeltaMergeIntoClause {
+  extends DeltaMergeIntoNotMatchedClause {
 
   def this(cond: Option[Expression], cols: Seq[UnresolvedAttribute], exprs: Seq[Expression]) =
     this(cond, DeltaMergeIntoClause.toActions(cols, exprs))
+}
+
+/** Represents the clause WHEN MATCHED IN SOURCE THEN DELETE in MERGE. See [[DeltaMergeInto]]. */
+case class DeltaMergeIntoDeleteTargetClause(condition: Option[Expression])
+    extends DeltaMergeIntoNotMatchedClause {
+  def this(condition: Option[Expression], actions: Seq[DeltaMergeAction]) = this(condition)
+
+  override def actions: Seq[Expression] = Seq.empty
 }
 
 /**
@@ -209,7 +220,7 @@ case class DeltaMergeInto(
     source: LogicalPlan,
     condition: Expression,
     matchedClauses: Seq[DeltaMergeIntoMatchedClause],
-    notMatchedClauses: Seq[DeltaMergeIntoInsertClause],
+    notMatchedClauses: Seq[DeltaMergeIntoNotMatchedClause],
     migrateSchema: Boolean) extends Command {
 
   (matchedClauses ++ notMatchedClauses).foreach(_.verifyActions())
@@ -251,7 +262,7 @@ object DeltaMergeInto {
       source,
       condition,
       whenClauses.collect { case x: DeltaMergeIntoMatchedClause => x },
-      whenClauses.collect { case x: DeltaMergeIntoInsertClause => x },
+      whenClauses.collect { case x: DeltaMergeIntoNotMatchedClause => x },
       migrateSchema = false)
   }
 
@@ -346,7 +357,6 @@ object DeltaMergeInto {
 
           // For actions like `UPDATE SET x = a, y = b` or `INSERT (x, y) VALUES (a, b)`
           case DeltaMergeAction(colNameParts, expr) =>
-
             val unresolvedAttrib = UnresolvedAttribute(colNameParts)
             val resolutionErrorMsg =
               s"Cannot resolve ${unresolvedAttrib.sql} in target columns in $typ " +
@@ -378,7 +388,10 @@ object DeltaMergeInto {
       resolveClause(_, merge)
     }
     val resolvedNotMatchedClause = notMatchedClause.map {
-      resolveClause(_, fakeSourcePlan)
+      clause => clause match {
+        case DeltaMergeIntoInsertClause(condition, actions) => resolveClause(clause, fakeSourcePlan)
+        case DeltaMergeIntoDeleteTargetClause(condition) => resolveClause(clause, fakeTargetPlan)
+      }
     }
     val containsStarAction =
       (matchedClauses ++ notMatchedClause).flatMap(_.actions).exists(_.isInstanceOf[UnresolvedStar])

@@ -185,6 +185,8 @@ object DeltaOptions extends DeltaLogging {
   val STARTING_VERSION_OPTION = "startingVersion"
   val STARTING_TIMESTAMP_OPTION = "startingTimestamp"
 
+  val TIME_TRAVEL_TS_CRLC_KEY = "canReturnLastCommit"
+
   val validOptionKeys : Set[String] = Set(
     REPLACE_WHERE_OPTION,
     MERGE_SCHEMA_OPTION,
@@ -204,6 +206,7 @@ object DeltaOptions extends DeltaLogging {
     "checkpointLocation",
     "path",
     "timestampAsOf",
+    "canReturnLastCommit",
     "versionAsOf"
   )
 

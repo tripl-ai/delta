@@ -292,7 +292,7 @@ object DeltaTableUtils extends PredicateHelper
       userVersion -> "version"
     } else {
       val timestamp = tt.getTimestamp(conf.sessionLocalTimeZone)
-      deltaLog.history.getActiveCommitAtTime(timestamp, false).version -> "timestamp"
+      deltaLog.history.getActiveCommitAtTime(timestamp, tt.canReturnLastCommit.getOrElse(false)).version -> "timestamp"
     }
   }
 }
